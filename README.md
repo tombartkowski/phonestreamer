@@ -92,4 +92,36 @@ Here's how it works.
   )
   nsEvent?.cgEvent?.postToPid({SIMULATOR_PID})
    ```
+### WebRTC output broadcaster
 
+WebRTC output broadcaster is a macOS command line tool written in Swift and Objective-C responsible for estabilishing a WebRTC peer-to-peer connection with React client, capturing the Simulator's window content and broadcasting it.
+
+Here's how it works.
+
+1. Signal an `offer` to `webrtc-signaling-server` via WebSockets.
+2. Once the connection has been estabilished start the window capture.
+4. Capture the window content 30 times per second as a `JPEG` binary data and transfer it via `dataChannel` to the React client.
+```objective-c
+CGImageRef image = CGWindowListCreateImage(
+    windowFrame,
+    kCGWindowListOptionIncludingWindow,
+    windowId,
+    kCGWindowImageNominalResolution | kCGWindowImageBoundsIgnoreFraming
+);
+
+CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, 0);
+CGImageDestinationRef destination = CGImageDestinationCreateWithData(data, kUTTypeJPEG, 1, nil);
+CGImageDestinationAddImage(destination, image, nil);
+CGImageDestinationFinalize(destination);
+CFRelease(destination);
+CGImageRelease(image);
+
+NSData *jpegData = (__bridge NSData * _Nonnull)(data);
+RTCDataBuffer *buffer = [[RTCDataBuffer alloc] initWithData: jpegData isBinary: true];
+[_dataChannel sendData: buffer];
+CFRelease(data);
+```
+
+### WebRTC signaling server
+
+WebRTC signaling server is a simple NodeJS server based on [Express.js](https://expressjs.com/) responsible for negotiating WebRTC connection between peers.
